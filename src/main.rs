@@ -1,6 +1,5 @@
 use std::env;
 
-
 fn read_input(day: &str, part: &str) -> Vec<String> {
     if atty::is(atty::Stream::Stdin) {
         let filename = format!("inputs/day{day}/part{part}");
@@ -9,15 +8,13 @@ fn read_input(day: &str, part: &str) -> Vec<String> {
             .lines()
             .map(|line| line.to_string())
             .collect()
-    }
-    else {
+    } else {
         std::io::stdin()
             .lines()
             .filter_map(|line| line.ok())
             .collect()
     }
 }
-
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -33,7 +30,7 @@ fn main() {
                 "2" => part2(&input),
                 _ => panic!("invalid part"),
             }
-        },
+        }
         "2" => {
             use advent_of_code_2023::day2::{part1, part2};
             match part.as_str() {
@@ -41,7 +38,7 @@ fn main() {
                 "2" => part2(&input),
                 _ => panic!("invalid part"),
             }
-        },
+        }
         _ => panic!("unknown day"),
     };
 
