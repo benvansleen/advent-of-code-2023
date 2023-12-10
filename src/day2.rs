@@ -99,8 +99,7 @@ pub fn part1(input: &[String]) -> u32 {
         .iter()
         .map(|line| Game::from(line))
         .filter(|game| game.is_valid(&constraint))
-        .map(|game| game.id)
-        .sum()
+        .fold(0, |acc, game| acc + game.id)
 }
 
 pub fn part2(input: &[String]) -> u32 {
