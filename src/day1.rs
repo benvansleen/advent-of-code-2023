@@ -33,7 +33,7 @@ fn parse_part2(line: &str) -> Vec<u32> {
         .collect()
 }
 
-fn run(input: &Vec<String>, parse_fn: fn(&str) -> Vec<u32>) -> u32 {
+fn run(input: &[String], parse_fn: fn(&str) -> Vec<u32>) -> u32 {
     input
         .iter()
         .filter_map(|line| {
@@ -43,10 +43,10 @@ fn run(input: &Vec<String>, parse_fn: fn(&str) -> Vec<u32>) -> u32 {
         .sum::<_>()
 }
 
-pub fn part1(input: &Vec<String>) -> u32 {
+pub fn part1(input: &[String]) -> u32 {
     run(input, parse_part1)
 }
 
-pub fn part2(input: &Vec<String>) -> u32 {
+pub fn part2(input: &[String]) -> u32 {
     run(input, parse_part2)
 }

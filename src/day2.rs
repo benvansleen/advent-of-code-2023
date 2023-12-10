@@ -17,7 +17,6 @@ impl State {
                 .first()
                 .expect("No count found")
                 .parse::<u32>()
-                .ok()
                 .expect("Count is not a number");
             let color: &str = split_on_space.last().expect("No color found");
             color_count.insert(color, count);
@@ -56,7 +55,7 @@ impl Game {
             .last()
             .expect("Incorrect input format -- no colon")
             .split(';')
-            .map(|i| State::from(i))
+            .map(State::from)
             .collect();
 
         Game {
@@ -89,7 +88,7 @@ impl Game {
     }
 }
 
-pub fn part1(input: &Vec<String>) -> u32 {
+pub fn part1(input: &[String]) -> u32 {
     let constraint = State {
         n_blue: 14,
         n_red: 12,
@@ -104,7 +103,7 @@ pub fn part1(input: &Vec<String>) -> u32 {
         .sum()
 }
 
-pub fn part2(input: &Vec<String>) -> u32 {
+pub fn part2(input: &[String]) -> u32 {
     input
         .iter()
         .map(|line| Game::from(line).min_valid_set())

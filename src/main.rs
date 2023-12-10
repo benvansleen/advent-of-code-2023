@@ -11,7 +11,7 @@ fn read_input(day: &str, part: &str) -> Vec<String> {
     } else {
         std::io::stdin()
             .lines()
-            .filter_map(|line| line.ok())
+            .map_while(Result::ok)
             .collect()
     }
 }
