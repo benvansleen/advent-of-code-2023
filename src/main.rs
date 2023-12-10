@@ -27,10 +27,18 @@ fn main() {
 
     let output = match day.as_str() {
         "1" => {
-            use advent_of_code_2023::day1;
+            use advent_of_code_2023::day1::{part1, part2};
             match part.as_str() {
-                "1" => day1::part1(&input),
-                "2" => day1::part2(&input),
+                "1" => part1(&input),
+                "2" => part2(&input),
+                _ => panic!("invalid part"),
+            }
+        },
+        "2" => {
+            use advent_of_code_2023::day2::{part1, part2};
+            match part.as_str() {
+                "1" => part1(&input),
+                "2" => part2(&input),
                 _ => panic!("invalid part"),
             }
         },
