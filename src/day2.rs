@@ -9,7 +9,8 @@ struct State {
 
 impl State {
     fn from(s: &str) -> State {
-        let mut color_count = HashMap::from([("blue", 0), ("red", 0), ("green", 0)]);
+        let mut color_count =
+            HashMap::from([("blue", 0), ("red", 0), ("green", 0)]);
 
         s.split(',').map(|i| i.trim()).for_each(|split| {
             let split_on_space: Vec<&str> = split.split(' ').collect();
