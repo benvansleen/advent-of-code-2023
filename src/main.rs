@@ -48,6 +48,8 @@ fn read_input(day: &str) -> Vec<String> {
 }
 
 fn main() {
+    env_logger::builder().format_timestamp(None).init();
+
     let args: Vec<String> = env::args().collect();
     let day = args.get(1).expect("missing day argument");
     let part = args.get(2).expect("missing part argument");
