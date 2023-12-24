@@ -61,27 +61,28 @@ impl Grid {
                 let (token, n_digits) = read_next_token(&s);
                 log::debug!("Next token: {:?} ({:?} digits)", token, n_digits);
 
-                if let Token::Number(n) = token {
-                    if let Some((symbol, pt)) = Self::neighboring_symbol(
+                if let (Token::Number(n), Some((symbol, pt))) = (
+                    token,
+                    Self::neighboring_symbol(
                         input,
                         row_i,
                         col_i,
                         col_i + n_digits,
-                    ) {
-                        log::debug!("Found symbol {:?} at {:?}", symbol, pt);
-                        match nodes.get_mut(&pt) {
-                            Some(node) => {
-                                node.children.push(n);
-                            }
-                            None => {
-                                nodes.insert(
-                                    pt,
-                                    Node {
-                                        symbol,
-                                        children: vec![n],
-                                    },
-                                );
-                            }
+                    ),
+                ) {
+                    log::debug!("Found symbol {:?} at {:?}", symbol, pt);
+                    match nodes.get_mut(&pt) {
+                        Some(node) => {
+                            node.children.push(n);
+                        }
+                        None => {
+                            nodes.insert(
+                                pt,
+                                Node {
+                                    symbol,
+                                    children: vec![n],
+                                },
+                            );
                         }
                     }
                 }
