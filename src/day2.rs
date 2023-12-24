@@ -151,8 +151,7 @@ pub fn part1(input: &[String]) -> u32 {
         .map(|line| Game::<u16>::from(line))
         .inspect(|game| log::debug!("Parsed game:\n{game}"))
         .filter(|game| game.is_valid(&constraint))
-        .fold(0, |acc, game| acc + game.id )
-        as u32
+        .fold(0, |acc, game| acc + game.id) as u32
 }
 
 pub fn part2(input: &[String]) -> u32 {
@@ -161,6 +160,5 @@ pub fn part2(input: &[String]) -> u32 {
         .inspect(|line| log::debug!("Parsing line:\n{line}"))
         .map(|line| Game::<u16>::from(line).min_valid_set())
         .inspect(|state| log::debug!("Min viable state:\n{state}"))
-        .fold(0, |acc, i| acc + i.power())
-        as u32
+        .fold(0, |acc, i| acc + i.power()) as u32
 }
