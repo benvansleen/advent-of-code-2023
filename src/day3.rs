@@ -27,7 +27,7 @@ fn read_next_token(s: &Chars) -> (Token, usize) {
     let parsed_num = str::parse::<u32>(
         &s.clone()
             .by_ref()
-            .take_while(|c| ('0'..='9').contains(c))
+            .take_while(|c| c.is_ascii_digit())
             .collect::<String>(),
     );
     match parsed_num {
@@ -188,20 +188,18 @@ impl Grid {
 
     fn sum_non_orphans(&self) -> u32 {
         self.nodes
-            .iter()
-            .map(|(_, node)| node)
+            .values()
             .inspect(|n| log::debug!("{}: {:?}", n.symbol, n.children))
-            .map(|n| n.children.iter().fold(0, |acc, n| acc + n))
+            .map(|n| n.children.iter().sum::<u32>())
             .sum()
     }
 
     fn sum_and_multiply_non_orphans(&self) -> u32 {
         self.nodes
-            .iter()
-            .map(|(_, node)| node)
+            .values()
             .filter(|node| node.symbol == '*' && node.children.len() == 2)
             .inspect(|node| log::debug!("{}: {:?}", node.symbol, node.children))
-            .map(|node| node.children.iter().fold(1, |acc, n| acc * n))
+            .map(|node| node.children.iter().product::<u32>())
             .sum()
     }
 }
