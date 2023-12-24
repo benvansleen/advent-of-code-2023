@@ -1,13 +1,20 @@
 use std::str::Chars;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 struct Node {
-    value: u32,
-    adjacent_to_symbol: bool,
+    symbol: char,
+    children: Vec<u32>,
+}
+
+#[derive(Debug, Hash, Eq, PartialEq)]
+struct Point {
+    row_i: usize,
+    col_i: usize,
 }
 
 struct Grid {
-    nodes: Vec<Node>,
+    nodes: HashMap<Point, Node>,
 }
 
 #[derive(Debug)]
@@ -46,7 +53,7 @@ fn read_next_token(s: &Chars) -> (Token, usize) {
 
 impl Grid {
     fn from(input: &[String]) -> Self {
-        let mut nodes = Vec::new();
+        let mut nodes: HashMap<Point, Node> = HashMap::new();
         input.iter().enumerate().for_each(|(row_i, row)| {
             let mut col_i = 0;
             let mut s = row.chars();
@@ -55,15 +62,23 @@ impl Grid {
                 log::debug!("Next token: {:?} ({:?} digits)", token, n_digits);
 
                 if let Token::Number(n) = token {
-                    nodes.push(Node {
-                        value: n,
-                        adjacent_to_symbol: Self::neighboring_symbol(
-                            input,
-                            row_i,
-                            col_i,
-                            col_i + n_digits,
-                        ),
-                    });
+                    if let Some((symbol, pt)) = Self::neighboring_symbol(
+                        input,
+                        row_i,
+                        col_i,
+                        col_i + n_digits,
+                    ) {
+                        log::debug!("Found symbol {:?} at {:?}", symbol, pt);
+                        match nodes.get_mut(&pt) {
+                            Some(node) => { node.children.push(n); }
+                            None => {
+                                nodes.insert(pt, Node {
+                                    symbol,
+                                    children: vec![n],
+                                });
+                            }
+                        }
+                    }
                 }
 
                 col_i += n_digits;
@@ -81,9 +96,9 @@ impl Grid {
         row_i: usize,
         col_i: usize,
         col_end: usize,
-    ) -> bool {
-        let symbol = |c| {
-            c == '*'
+    ) -> Option<(char, Point)> {
+        let symbol = |(c, pt)| {
+            if c == '*'
                 || c == '+'
                 || c == '&'
                 || c == '='
@@ -92,43 +107,81 @@ impl Grid {
                 || c == '/'
                 || c == '-'
                 || c == '%'
-                || c == '#'
+                || c == '#' {
+                    Some((c, pt))
+                }
+            else {
+                None
+            }
         };
 
-        if col_i > 0
-            && symbol(input[row_i].chars().nth(col_i - 1).unwrap_or(' '))
+
+        if let Some(tuple) = input
+            .get(row_i)
+            .and_then(|row| {
+                (col_i as isize - 1).try_into().ok()
+                    .and_then(
+                        |col_i: usize| row.chars().nth(col_i)
+                    .and_then(|c| symbol((c, Point { row_i, col_i }))))
+            })
         {
-            return true;
+            return Some(tuple);
         }
 
-        if symbol(input[row_i].chars().nth(col_end).unwrap_or(' ')) {
-            return true;
+        if let Some(tuple) = input
+            .get(row_i)
+            .and_then(|row| row.chars().nth(col_end)
+            .and_then(|c| symbol((c, Point { row_i, col_i: col_end }))))
+        {
+            return Some(tuple);
         }
 
-        let col_i = if col_i > 0 { col_i - 1 } else { col_i };
-        for i in col_i..(col_end + 1) {
-            if row_i > 0
-                && symbol(input[row_i - 1].chars().nth(i).unwrap_or('\n'))
+        let col_i = (col_i as isize - 1).try_into().unwrap_or(0);
+        for i in col_i..=col_end {
+            if let Some(tuple) = input
+                .get((row_i as isize - 1).try_into().unwrap_or(0) as usize)
+                .and_then(|row| row.chars().nth(i)
+                    .and_then(|c| symbol((c, Point {
+                        row_i: (row_i as isize - 1).try_into().unwrap_or(0),
+                        col_i: i,
+                }))))
             {
-                return true;
+                return Some(tuple);
             }
 
-            if row_i < input.len() - 1
-                && symbol(input[row_i + 1].chars().nth(i).unwrap_or('\n'))
+            if let Some(tuple) = input
+                .get(row_i + 1)
+                .and_then(|row| row.chars().nth(i)
+                    .and_then(|c| symbol((c, Point {
+                        row_i: row_i + 1,
+                        col_i: i,
+                }))))
             {
-                return true;
+                return Some(tuple);
             }
         }
 
-        false
+        None
     }
 
     fn sum_non_orphans(&self) -> u32 {
         self.nodes
             .iter()
-            .inspect(|n| log::debug!("{:?}", n))
-            .filter(|n| n.adjacent_to_symbol)
-            .map(|n| n.value)
+            .map(|(_, node)| node)
+            .inspect(|n| log::debug!("{}: {:?}", n.symbol, n.children))
+            .map(|n| n.children.iter().fold(0, |acc, n| acc + n))
+            .sum()
+    }
+
+    fn sum_and_multiply_non_orphans(&self) -> u32 {
+        self.nodes
+            .iter()
+            .map(|(_, node)| node)
+            .filter(|node| node.symbol == '*' && node.children.len() == 2)
+            .inspect(
+                |node| log::debug!("{}: {:?}", node.symbol, node.children)
+            )
+            .map(|node| node.children.iter().fold(1, |acc, n| acc * n))
             .sum()
     }
 }
@@ -139,7 +192,8 @@ pub fn part1(input: &[String]) -> u32 {
 }
 
 pub fn part2(input: &[String]) -> u32 {
-    todo!()
+    let grid = Grid::from(input);
+    grid.sum_and_multiply_non_orphans()
 }
 
 #[cfg(test)]
@@ -167,5 +221,24 @@ mod tests {
         .map(|l| l.to_string());
 
         assert_eq!(super::part1(&input), 4361);
+    }
+
+    #[test]
+    fn part2() {
+        let input = [
+            "467..114..",
+            "...*......",
+            "..35..633.",
+            "......#...",
+            "617*......",
+            ".....+.58.",
+            "..592.....",
+            "......755.",
+            "...$.*....",
+            ".664.598..",
+        ]
+        .map(|l| l.to_string());
+
+        assert_eq!(super::part2(&input), 467835);
     }
 }
