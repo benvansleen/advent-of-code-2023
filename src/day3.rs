@@ -20,7 +20,7 @@ fn read_next_token(s: &Chars) -> (Token, usize) {
     let parsed_num = str::parse::<u32>(
         &s.clone()
             .by_ref()
-            .take_while(|c| c >= &'0' && c <= &'9')
+            .take_while(|c| ('0'..='9').contains(c))
             .collect::<String>(),
     );
     match parsed_num {
@@ -51,7 +51,7 @@ impl Grid {
             let mut col_i = 0;
             let mut s = row.chars();
             while col_i < row.len() {
-                let (token, n_digits) = read_next_token(&mut s);
+                let (token, n_digits) = read_next_token(&s);
                 log::debug!("Next token: {:?} ({:?} digits)", token, n_digits);
 
                 if let Token::Number(n) = token {
@@ -108,13 +108,13 @@ impl Grid {
         let col_i = if col_i > 0 { col_i - 1 } else { col_i };
         for i in col_i..(col_end + 1) {
             if row_i > 0
-                && symbol(input[row_i - 1].chars().nth(i).unwrap_or(' '))
+                && symbol(input[row_i - 1].chars().nth(i).unwrap_or('\n'))
             {
                 return true;
             }
 
             if row_i < input.len() - 1
-                && symbol(input[row_i + 1].chars().nth(i).unwrap_or(' '))
+                && symbol(input[row_i + 1].chars().nth(i).unwrap_or('\n'))
             {
                 return true;
             }
@@ -129,12 +129,12 @@ impl Grid {
             .inspect(|n| log::debug!("{:?}", n))
             .filter(|n| n.adjacent_to_symbol)
             .map(|n| n.value)
-            .fold(0, |acc, n| acc + n)
+            .sum()
     }
 }
 
 pub fn part1(input: &[String]) -> u32 {
-    let grid = Grid::from(&input);
+    let grid = Grid::from(input);
     grid.sum_non_orphans()
 }
 
