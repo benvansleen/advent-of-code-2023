@@ -26,7 +26,6 @@ enum Token {
 fn read_next_token(s: &Chars) -> (Token, usize) {
     let parsed_num = str::parse::<u32>(
         &s.clone()
-            .by_ref()
             .take_while(|c| c.is_ascii_digit())
             .collect::<String>(),
     );
@@ -42,11 +41,7 @@ fn read_next_token(s: &Chars) -> (Token, usize) {
         }
         Err(_) => {
             let mut s = s.clone();
-            let mut c = s.by_ref().next().unwrap();
-            if c == '\n' {
-                c = s.next().unwrap();
-            }
-            (Token::Symbol(c), 1)
+            (Token::Symbol(s.next().unwrap()), 1)
         }
     }
 }
