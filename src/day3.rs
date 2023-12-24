@@ -1,5 +1,5 @@
-use std::str::Chars;
 use std::collections::HashMap;
+use std::str::Chars;
 
 #[derive(Debug)]
 struct Node {
@@ -70,12 +70,17 @@ impl Grid {
                     ) {
                         log::debug!("Found symbol {:?} at {:?}", symbol, pt);
                         match nodes.get_mut(&pt) {
-                            Some(node) => { node.children.push(n); }
+                            Some(node) => {
+                                node.children.push(n);
+                            }
                             None => {
-                                nodes.insert(pt, Node {
-                                    symbol,
-                                    children: vec![n],
-                                });
+                                nodes.insert(
+                                    pt,
+                                    Node {
+                                        symbol,
+                                        children: vec![n],
+                                    },
+                                );
                             }
                         }
                     }
@@ -107,32 +112,38 @@ impl Grid {
                 || c == '/'
                 || c == '-'
                 || c == '%'
-                || c == '#' {
-                    Some((c, pt))
-                }
-            else {
+                || c == '#'
+            {
+                Some((c, pt))
+            } else {
                 None
             }
         };
 
-
-        if let Some(tuple) = input
-            .get(row_i)
-            .and_then(|row| {
-                (col_i as isize - 1).try_into().ok()
-                    .and_then(
-                        |col_i: usize| row.chars().nth(col_i)
-                    .and_then(|c| symbol((c, Point { row_i, col_i }))))
-            })
-        {
+        if let Some(tuple) = input.get(row_i).and_then(|row| {
+            (col_i as isize - 1)
+                .try_into()
+                .ok()
+                .and_then(|col_i: usize| {
+                    row.chars()
+                        .nth(col_i)
+                        .and_then(|c| symbol((c, Point { row_i, col_i })))
+                })
+        }) {
             return Some(tuple);
         }
 
-        if let Some(tuple) = input
-            .get(row_i)
-            .and_then(|row| row.chars().nth(col_end)
-            .and_then(|c| symbol((c, Point { row_i, col_i: col_end }))))
-        {
+        if let Some(tuple) = input.get(row_i).and_then(|row| {
+            row.chars().nth(col_end).and_then(|c| {
+                symbol((
+                    c,
+                    Point {
+                        row_i,
+                        col_i: col_end,
+                    },
+                ))
+            })
+        }) {
             return Some(tuple);
         }
 
@@ -140,23 +151,34 @@ impl Grid {
         for i in col_i..=col_end {
             if let Some(tuple) = input
                 .get((row_i as isize - 1).try_into().unwrap_or(0) as usize)
-                .and_then(|row| row.chars().nth(i)
-                    .and_then(|c| symbol((c, Point {
-                        row_i: (row_i as isize - 1).try_into().unwrap_or(0),
-                        col_i: i,
-                }))))
+                .and_then(|row| {
+                    row.chars().nth(i).and_then(|c| {
+                        symbol((
+                            c,
+                            Point {
+                                row_i: (row_i as isize - 1)
+                                    .try_into()
+                                    .unwrap_or(0),
+                                col_i: i,
+                            },
+                        ))
+                    })
+                })
             {
                 return Some(tuple);
             }
 
-            if let Some(tuple) = input
-                .get(row_i + 1)
-                .and_then(|row| row.chars().nth(i)
-                    .and_then(|c| symbol((c, Point {
-                        row_i: row_i + 1,
-                        col_i: i,
-                }))))
-            {
+            if let Some(tuple) = input.get(row_i + 1).and_then(|row| {
+                row.chars().nth(i).and_then(|c| {
+                    symbol((
+                        c,
+                        Point {
+                            row_i: row_i + 1,
+                            col_i: i,
+                        },
+                    ))
+                })
+            }) {
                 return Some(tuple);
             }
         }
@@ -178,9 +200,7 @@ impl Grid {
             .iter()
             .map(|(_, node)| node)
             .filter(|node| node.symbol == '*' && node.children.len() == 2)
-            .inspect(
-                |node| log::debug!("{}: {:?}", node.symbol, node.children)
-            )
+            .inspect(|node| log::debug!("{}: {:?}", node.symbol, node.children))
             .map(|node| node.children.iter().fold(1, |acc, n| acc * n))
             .sum()
     }
