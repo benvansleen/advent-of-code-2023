@@ -1,10 +1,11 @@
 use core::slice::Iter;
 use std::collections::HashMap;
+use std::str::FromStr;
 
 #[derive(Debug)]
-struct Node {
+struct Node<T> {
     symbol: char,
-    children: Vec<u32>,
+    children: Vec<T>,
 }
 
 #[derive(Debug, Hash, Eq, PartialEq)]
@@ -13,71 +14,100 @@ struct Point {
     col_i: usize,
 }
 
-struct Grid {
-    nodes: HashMap<Point, Node>,
+struct Grid<T> {
+    nodes: HashMap<Point, Node<T>>,
 }
 
 #[derive(Debug)]
-enum Token {
-    Number(u32),
+enum Token<T> {
+    Number(T),
     Symbol(char),
 }
 
-fn read_next_token(s: &mut Iter<char>) -> (Token, usize) {
-    let parsed_num: Result<u32, _> = str::parse(
+fn read_next_token<T: Copy + Clone + FromStr + ilog::IntLog>(
+    s: &mut Iter<char>,
+) -> (Token<T>, usize) {
+    let parsed_num: Result<T, _> = str::parse(
         &s.clone()
             .take_while(|c| c.is_ascii_digit())
             .collect::<String>(),
     );
     match parsed_num {
         Ok(n) => {
-            let mut n_tmp = n;
-            let mut n_digits = 0;
-            while n_tmp > 0 {
-                n_digits += 1;
-                n_tmp /= 10;
+            let n_digits = n.checked_log10().unwrap_or(0) + 1;
+            (0..n_digits).for_each(|_| {
                 s.next();
-            }
+            });
             (Token::Number(n), n_digits)
         }
         Err(_) => (Token::Symbol(*s.next().unwrap()), 1),
     }
 }
 
-impl Grid {
+impl<
+        T: Clone
+            + Copy
+            + Default
+            + std::ops::Add<Output = T>
+            + std::iter::Product
+            + std::iter::Sum
+            + std::cmp::Ord
+            + std::str::FromStr
+            + std::fmt::Debug
+            + std::marker::Send
+            + ilog::IntLog
+            + 'static,
+    > Grid<T>
+{
     fn from(input: &[String]) -> Self {
-        let mut nodes: HashMap<Point, Node> = HashMap::new();
         let input: Vec<Vec<char>> =
             input.iter().map(|s| s.chars().collect()).collect();
 
-        input.iter().enumerate().for_each(|(row_i, row)| {
-            let mut col_i = 0;
-            let mut s = row.iter();
-            while col_i < row.len() {
-                let (token, n_digits) = read_next_token(&mut s);
-                log::debug!("Next token: {:?} ({:?} digits)", token, n_digits);
-                if let Token::Number(n) = token {
-                    if let Some((symbol, pt)) = Self::neighboring_symbol(
-                        &input,
-                        row_i,
-                        col_i,
-                        col_i + n_digits,
-                    ) {
-                        log::debug!("Found symbol {:?} at {:?}", symbol, pt);
-                        nodes
-                            .entry(pt)
-                            .or_insert(Node {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let producer = std::thread::spawn(move || {
+            input.iter().enumerate().for_each(|(row_i, row)| {
+                let mut col_i = 0;
+                let mut s = row.iter();
+                while col_i < row.len() {
+                    let (token, n_digits) = read_next_token(&mut s);
+                    log::debug!(
+                        "Next token: {:?} ({:?} digits)",
+                        token,
+                        n_digits
+                    );
+                    if let Token::Number(n) = token {
+                        if let Some((symbol, pt)) = Self::neighboring_symbol(
+                            &input,
+                            row_i,
+                            col_i,
+                            col_i + n_digits,
+                        ) {
+                            log::debug!(
+                                "Found symbol {:?} at {:?}",
                                 symbol,
-                                children: Vec::new(),
-                            })
-                            .children
-                            .push(n);
+                                pt
+                            );
+                            tx.send((pt, symbol, n)).unwrap();
+                        }
                     }
-                }
 
-                col_i += n_digits;
-            }
+                    col_i += n_digits;
+                }
+            })
         });
+
+        let mut nodes: HashMap<Point, Node<T>> = HashMap::new();
+        rx.iter().for_each(|(pt, symbol, n)| {
+            nodes
+                .entry(pt)
+                .or_insert(Node {
+                    symbol,
+                    children: Vec::new(),
+                })
+                .children
+                .push(n);
+        });
+        producer.join().unwrap();
 
         Self { nodes }
     }
@@ -111,32 +141,32 @@ impl Grid {
             }))
     }
 
-    fn sum_non_orphans(&self) -> u32 {
+    fn sum_non_orphans(&self) -> T {
         self.nodes
             .values()
             .inspect(|n| log::debug!("{}: {:?}", n.symbol, n.children))
-            .map(|n| n.children.iter().sum::<u32>())
+            .map(|n| n.children.iter().fold(T::default(), |acc, n| acc + *n))
             .sum()
     }
 
-    fn sum_and_multiply_non_orphans(&self) -> u32 {
+    fn sum_and_multiply_non_orphans(&self) -> T {
         self.nodes
             .values()
             .filter(|node| node.symbol == '*' && node.children.len() == 2)
             .inspect(|node| log::debug!("{}: {:?}", node.symbol, node.children))
-            .map(|node| node.children.iter().product::<u32>())
+            .map(|node| node.children.clone().into_iter().product())
             .sum()
     }
 }
 
 pub fn part1(input: &[String]) -> u32 {
-    let grid = Grid::from(input);
-    grid.sum_non_orphans()
+    let grid = Grid::<i32>::from(input);
+    grid.sum_non_orphans() as u32
 }
 
 pub fn part2(input: &[String]) -> u32 {
-    let grid = Grid::from(input);
-    grid.sum_and_multiply_non_orphans()
+    let grid = Grid::<i32>::from(input);
+    grid.sum_and_multiply_non_orphans() as u32
 }
 
 #[cfg(test)]
