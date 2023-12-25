@@ -1,5 +1,5 @@
+use core::slice::Iter;
 use std::collections::HashMap;
-use std::str::Chars;
 
 #[derive(Debug)]
 struct Node {
@@ -23,7 +23,7 @@ enum Token {
     Symbol(char),
 }
 
-fn read_next_token(s: &Chars) -> (Token, usize) {
+fn read_next_token(s: &Iter<char>) -> (Token, usize) {
     let parsed_num = str::parse::<u32>(
         &s.clone()
             .take_while(|c| c.is_ascii_digit())
@@ -41,17 +41,21 @@ fn read_next_token(s: &Chars) -> (Token, usize) {
         }
         Err(_) => {
             let mut s = s.clone();
-            (Token::Symbol(s.next().unwrap()), 1)
+            (Token::Symbol(*s.next().unwrap()), 1)
         }
     }
 }
 
 impl Grid {
     fn from(input: &[String]) -> Self {
+        let input = input
+            .iter()
+            .map(|s| s.chars().collect::<Vec<char>>())
+            .collect::<Vec<Vec<char>>>();
         let mut nodes: HashMap<Point, Node> = HashMap::new();
         input.iter().enumerate().for_each(|(row_i, row)| {
             let mut col_i = 0;
-            let mut s = row.chars();
+            let mut s = row.iter();
             while col_i < row.len() {
                 let (token, n_digits) = read_next_token(&s);
                 log::debug!("Next token: {:?} ({:?} digits)", token, n_digits);
@@ -59,7 +63,7 @@ impl Grid {
                 if let (Token::Number(n), Some((symbol, pt))) = (
                     token,
                     Self::neighboring_symbol(
-                        input,
+                        &input,
                         row_i,
                         col_i,
                         col_i + n_digits,
@@ -93,12 +97,13 @@ impl Grid {
     }
 
     fn neighboring_symbol(
-        input: &[String],
+        input: &[Vec<char>],
         row_i: usize,
         col_i: usize,
         col_end: usize,
     ) -> Option<(char, Point)> {
-        let symbol = |(c, pt)| {
+        let symbol = |(c, pt): (&char, Point)| {
+            let c: char = *c;
             if c == '*'
                 || c == '+'
                 || c == '&'
@@ -121,8 +126,7 @@ impl Grid {
                 .try_into()
                 .ok()
                 .and_then(|col_i: usize| {
-                    row.chars()
-                        .nth(col_i)
+                    row.get(col_i)
                         .and_then(|c| symbol((c, Point { row_i, col_i })))
                 })
         }) {
@@ -130,7 +134,7 @@ impl Grid {
         }
 
         if let Some(tuple) = input.get(row_i).and_then(|row| {
-            row.chars().nth(col_end).and_then(|c| {
+            row.get(col_end).and_then(|c| {
                 symbol((
                     c,
                     Point {
@@ -148,7 +152,7 @@ impl Grid {
             if let Some(tuple) = input
                 .get((row_i as isize - 1).try_into().unwrap_or(0) as usize)
                 .and_then(|row| {
-                    row.chars().nth(i).and_then(|c| {
+                    row.get(i).and_then(|c| {
                         symbol((
                             c,
                             Point {
@@ -165,7 +169,7 @@ impl Grid {
             }
 
             if let Some(tuple) = input.get(row_i + 1).and_then(|row| {
-                row.chars().nth(i).and_then(|c| {
+                row.get(i).and_then(|c| {
                     symbol((
                         c,
                         Point {
