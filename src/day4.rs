@@ -9,27 +9,31 @@ struct Card {
 
 impl Card {
     fn from(s: &str) -> Self {
-        let split_on_colon: Vec<&str> = s.split(':').collect();
-        let id = split_on_colon[0]
-            .split(' ')
-            .collect::<Vec<_>>()
-            .last()
-            .unwrap()
-            .parse::<usize>()
-            .unwrap();
-
         let to_set = |s: &str| {
             s.split(' ')
                 .filter(|s| !s.is_empty())
-                .map(|x| x.parse::<u32>().unwrap())
-                .collect::<HashSet<_>>()
+                .map(|x| x.parse().expect("invalid number"))
+                .collect()
         };
-        let game: Vec<&str> = split_on_colon[1].split('|').collect();
+        let split_on_colon: Vec<_> = s.split(':').collect();
+        let id = split_on_colon
+            .first()
+            .expect("Invalid format -- 'Card 1:' is expected")
+            .split(' ')
+            .last()
+            .expect("Invalid format -- 'Card 1:' is expected")
+            .parse()
+            .expect("Invalid format -- ID must be a number");
+        let game: Vec<_> = split_on_colon
+            .last()
+            .expect("Invalid format -- 'Card 1: 1 2 3 4' is expected")
+            .split('|')
+            .collect();
 
         Self {
             _id: id,
-            winners: to_set(game[0]),
-            values: to_set(game[1]),
+            winners: to_set(&game[0]),
+            values: to_set(&game[1]),
         }
     }
 
