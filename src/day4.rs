@@ -32,8 +32,8 @@ impl Card {
 
         Self {
             _id: id,
-            winners: to_set(&game[0]),
-            values: to_set(&game[1]),
+            winners: to_set(game[0]),
+            values: to_set(game[1]),
         }
     }
 
