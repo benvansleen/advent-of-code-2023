@@ -9,9 +9,9 @@ struct Card {
 
 impl Card {
     fn from(s: &str) -> Self {
-        let split_on_colon: Vec<&str> = s.split(":").collect();
+        let split_on_colon: Vec<&str> = s.split(':').collect();
         let id = split_on_colon[0]
-            .split(" ")
+            .split(' ')
             .collect::<Vec<_>>()
             .last()
             .unwrap()
@@ -19,12 +19,12 @@ impl Card {
             .unwrap();
 
         let to_set = |s: &str| {
-            s.split(" ")
+            s.split(' ')
                 .filter(|s| !s.is_empty())
                 .map(|x| x.parse::<u32>().unwrap())
                 .collect::<HashSet<_>>()
         };
-        let game: Vec<&str> = split_on_colon[1].split("|").collect();
+        let game: Vec<&str> = split_on_colon[1].split('|').collect();
 
         Self {
             _id: id,
