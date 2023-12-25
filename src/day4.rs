@@ -59,25 +59,16 @@ pub fn part1(input: &[String]) -> u32 {
 
 pub fn part2(input: &[String]) -> u32 {
     let mut counts = vec![1; input.len()];
-    let cards = input
+    input
         .iter()
-        .map(|s| Card::from(s))
-        .collect::<Vec<_>>();
-    let winners = cards
-        .iter()
-        .map(|c| c.winners())
-        .collect::<Vec<_>>();
+        .map(|c| Card::from(c).winners())
+        .enumerate()
+        .for_each(|(i, n)| {
+            let count = counts[i];
+            counts[i + 1..=i + n].iter_mut().for_each(|c| *c += count);
+        });
 
-    for (i, winner) in winners.iter().enumerate() {
-        let count = counts[i];
-        counts[i + 1 ..= i + *winner].iter_mut().for_each(
-            |c| *c += count,
-        );
-    }
-
-    counts
-        .iter()
-        .sum()
+    counts.iter().sum()
 }
 
 #[cfg(test)]
