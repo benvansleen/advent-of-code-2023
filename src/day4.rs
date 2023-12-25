@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Card {
     _id: usize,
     winners: HashSet<u32>,
@@ -33,8 +33,12 @@ impl Card {
         }
     }
 
+    fn winners(&self) -> usize {
+        self.winners.intersection(&self.values).count()
+    }
+
     fn value(&self) -> u32 {
-        let n_winners = self.winners.intersection(&self.values).count();
+        let n_winners = self.winners();
         if n_winners == 0 {
             return 0;
         }
@@ -54,7 +58,26 @@ pub fn part1(input: &[String]) -> u32 {
 }
 
 pub fn part2(input: &[String]) -> u32 {
-    todo!()
+    let mut counts = vec![1; input.len()];
+    let cards = input
+        .iter()
+        .map(|s| Card::from(s))
+        .collect::<Vec<_>>();
+    let winners = cards
+        .iter()
+        .map(|c| c.winners())
+        .collect::<Vec<_>>();
+
+    for (i, winner) in winners.iter().enumerate() {
+        let count = counts[i];
+        counts[i + 1 ..= i + *winner].iter_mut().for_each(
+            |c| *c += count,
+        );
+    }
+
+    counts
+        .iter()
+        .sum()
 }
 
 #[cfg(test)]
@@ -72,5 +95,20 @@ mod tests {
         .map(|s| s.to_string());
 
         assert_eq!(super::part1(&input), 13);
+    }
+
+    #[test]
+    fn part2() {
+        let input = [
+            "Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53",
+            "Card 2: 13 32 20 16 61 | 61 30 68 82 17 32 24 19",
+            "Card 3:  1 21 53 59 44 | 69 82 63 72 16 21 14  1",
+            "Card 4: 41 92 73 84 69 | 59 84 76 51 58  5 54 83",
+            "Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36",
+            "Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11",
+        ]
+        .map(|s| s.to_string());
+
+        assert_eq!(super::part2(&input), 30);
     }
 }
