@@ -23,8 +23,8 @@ enum Token {
     Symbol(char),
 }
 
-fn read_next_token(s: &Iter<char>) -> (Token, usize) {
-    let parsed_num = str::parse::<u32>(
+fn read_next_token(s: &mut Iter<char>) -> (Token, usize) {
+    let parsed_num: Result<u32, _> = str::parse(
         &s.clone()
             .take_while(|c| c.is_ascii_digit())
             .collect::<String>(),
@@ -36,60 +36,46 @@ fn read_next_token(s: &Iter<char>) -> (Token, usize) {
             while n_tmp > 0 {
                 n_digits += 1;
                 n_tmp /= 10;
+                s.next();
             }
             (Token::Number(n), n_digits)
         }
-        Err(_) => {
-            let mut s = s.clone();
-            (Token::Symbol(*s.next().unwrap()), 1)
-        }
+        Err(_) => (Token::Symbol(*s.next().unwrap()), 1),
     }
 }
 
 impl Grid {
     fn from(input: &[String]) -> Self {
-        let input = input
-            .iter()
-            .map(|s| s.chars().collect::<Vec<char>>())
-            .collect::<Vec<Vec<char>>>();
         let mut nodes: HashMap<Point, Node> = HashMap::new();
+        let input: Vec<Vec<char>> =
+            input.iter().map(|s| s.chars().collect()).collect();
+
         input.iter().enumerate().for_each(|(row_i, row)| {
             let mut col_i = 0;
             let mut s = row.iter();
             while col_i < row.len() {
-                let (token, n_digits) = read_next_token(&s);
+                let (token, n_digits) = read_next_token(&mut s);
                 log::debug!("Next token: {:?} ({:?} digits)", token, n_digits);
-
-                if let (Token::Number(n), Some((symbol, pt))) = (
-                    token,
-                    Self::neighboring_symbol(
+                if let Token::Number(n) = token {
+                    if let Some((symbol, pt)) = Self::neighboring_symbol(
                         &input,
                         row_i,
                         col_i,
                         col_i + n_digits,
-                    ),
-                ) {
-                    log::debug!("Found symbol {:?} at {:?}", symbol, pt);
-                    match nodes.get_mut(&pt) {
-                        Some(node) => {
-                            node.children.push(n);
-                        }
-                        None => {
-                            nodes.insert(
-                                pt,
-                                Node {
-                                    symbol,
-                                    children: vec![n],
-                                },
-                            );
-                        }
+                    ) {
+                        log::debug!("Found symbol {:?} at {:?}", symbol, pt);
+                        nodes
+                            .entry(pt)
+                            .or_insert(Node {
+                                symbol,
+                                children: Vec::new(),
+                            })
+                            .children
+                            .push(n);
                     }
                 }
 
                 col_i += n_digits;
-                for _ in 0..n_digits {
-                    s.next();
-                }
             }
         });
 
@@ -102,88 +88,27 @@ impl Grid {
         col_i: usize,
         col_end: usize,
     ) -> Option<(char, Point)> {
-        let symbol = |(c, pt): (&char, Point)| {
+        let symbol = |c: &char| {
             let c: char = *c;
-            if c == '*'
-                || c == '+'
-                || c == '&'
-                || c == '='
-                || c == '$'
-                || c == '@'
-                || c == '/'
-                || c == '-'
-                || c == '%'
-                || c == '#'
-            {
-                Some((c, pt))
-            } else {
-                None
+            match c {
+                '*' | '+' | '&' | '=' | '$' | '@' | '/' | '-' | '%' | '#' => {
+                    Some(c)
+                }
+                _ => None,
             }
         };
 
-        if let Some(tuple) = input.get(row_i).and_then(|row| {
-            (col_i as isize - 1)
-                .try_into()
-                .ok()
-                .and_then(|col_i: usize| {
-                    row.get(col_i)
-                        .and_then(|c| symbol((c, Point { row_i, col_i })))
-                })
-        }) {
-            return Some(tuple);
-        }
+        let check = |row_i: usize, col_i: usize| {
+            symbol(input.get(row_i)?.get(col_i)?)
+                .map(|c| (c, Point { row_i, col_i }))
+        };
 
-        if let Some(tuple) = input.get(row_i).and_then(|row| {
-            row.get(col_end).and_then(|c| {
-                symbol((
-                    c,
-                    Point {
-                        row_i,
-                        col_i: col_end,
-                    },
-                ))
-            })
-        }) {
-            return Some(tuple);
-        }
-
-        let col_i = (col_i as isize - 1).try_into().unwrap_or(0);
-        for i in col_i..=col_end {
-            if let Some(tuple) = input
-                .get((row_i as isize - 1).try_into().unwrap_or(0) as usize)
-                .and_then(|row| {
-                    row.get(i).and_then(|c| {
-                        symbol((
-                            c,
-                            Point {
-                                row_i: (row_i as isize - 1)
-                                    .try_into()
-                                    .unwrap_or(0),
-                                col_i: i,
-                            },
-                        ))
-                    })
-                })
-            {
-                return Some(tuple);
-            }
-
-            if let Some(tuple) = input.get(row_i + 1).and_then(|row| {
-                row.get(i).and_then(|c| {
-                    symbol((
-                        c,
-                        Point {
-                            row_i: row_i + 1,
-                            col_i: i,
-                        },
-                    ))
-                })
-            }) {
-                return Some(tuple);
-            }
-        }
-
-        None
+        check(row_i, col_i.saturating_sub(1))
+            .or(check(row_i, col_end))
+            .or((col_i.saturating_sub(1)..=col_end).fold(None, |acc, i| {
+                acc.or(check(row_i.saturating_sub(1), i))
+                    .or(check(row_i.saturating_add(1), i))
+            }))
     }
 
     fn sum_non_orphans(&self) -> u32 {
