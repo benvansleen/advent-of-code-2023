@@ -1,3 +1,4 @@
+use runner::run_puzzle;
 use std::env;
 
 fn fetch_input(day: &str) -> String {
@@ -53,53 +54,9 @@ fn main() {
     let args: Vec<String> = env::args().collect();
     let day = args.get(1).expect("missing day argument");
     let part = args.get(2).expect("missing part argument");
-    let input = read_input(day);
 
-    let output = match day.as_str() {
-        "1" => {
-            use advent_of_code_2023::day1::{part1, part2};
-            match part.as_str() {
-                "1" => part1(&input),
-                "2" => part2(&input),
-                _ => panic!("invalid part"),
-            }
-        }
-        "2" => {
-            use advent_of_code_2023::day2::{part1, part2};
-            match part.as_str() {
-                "1" => part1(&input),
-                "2" => part2(&input),
-                _ => panic!("invalid part"),
-            }
-        }
-        "3" => {
-            use advent_of_code_2023::day3::{part1, part2};
-            match part.as_str() {
-                "1" => part1(&input),
-                "2" => part2(&input),
-                _ => panic!("invalid part"),
-            }
-        }
-        "4" => {
-            use advent_of_code_2023::day4::{part1, part2};
-            match part.as_str() {
-                "1" => part1(&input),
-                "2" => part2(&input),
-                _ => panic!("invalid part"),
-            }
-        }
-        "5" => {
-            use advent_of_code_2023::day5::{part1, part2};
-            match part.as_str() {
-                "1" => part1(&input),
-                "2" => part2(&input),
-                _ => panic!("invalid part"),
-            }
-        }
-        _ => panic!("unknown day"),
-    };
-
-    println!("{output}");
+    let output = run_puzzle!(read_input, day, part);
+    println!("{:#?}", output);
 }
 
 
