@@ -88,6 +88,14 @@ fn main() {
                 _ => panic!("invalid part"),
             }
         }
+        "5" => {
+            use advent_of_code_2023::day5::{part1, part2};
+            match part.as_str() {
+                "1" => part1(&input),
+                "2" => part2(&input),
+                _ => panic!("invalid part"),
+            }
+        }
         _ => panic!("unknown day"),
     };
 
