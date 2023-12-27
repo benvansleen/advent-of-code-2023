@@ -144,13 +144,13 @@ impl<T: BoundedInt> Grid<T> {
 }
 
 pub fn part1(input: &[String]) -> u32 {
-    let grid = Grid::<u32>::from(input);
-    grid.sum_non_orphans() as u32
+    let grid = Grid::from(input);
+    grid.sum_non_orphans()
 }
 
 pub fn part2(input: &[String]) -> u32 {
-    let grid = Grid::<u32>::from(input);
-    grid.sum_and_multiply_non_orphans() as u32
+    let grid = Grid::from(input);
+    grid.sum_and_multiply_non_orphans()
 }
 
 #[cfg(test)]

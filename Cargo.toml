@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+runner = { path = "./runner" }
 atty = "0.2.14"
 crossbeam-channel = "0.5.10"
 env_logger = "0.10.1"
