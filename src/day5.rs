@@ -63,10 +63,14 @@ impl Map {
     }
 
     fn next_val(&self, val: u64) -> u64 {
-        match self.from_ranges.range(..=val).enumerate().last() {
-            Some((i, (start, range))) if range.contains(&val) => {
+        match self
+            .from_ranges
+            .range(..=val)
+            .zip(self.to_ranges.iter())
+            .last()
+        {
+            Some(((start, range), to_range)) if range.contains(&val) => {
                 let offset = val - start;
-                let to_range = self.to_ranges.get(i).unwrap();
                 to_range.start + offset
             }
             _ => val,
@@ -134,57 +138,44 @@ fn get_seed_ranges_from_groups(groups: &[&str]) -> Option<Vec<Range<u64>>> {
     )
 }
 
-pub fn part2(input: &[String]) -> u32 {
-    let input = input.join("\n");
-    let groups: Vec<_> = input.split("\n\n").collect();
-    let seed_list = get_seed_ranges_from_groups(&groups).unwrap();
-    let lookup: Arc<HashMap<_, Map>> = Arc::new(HashMap::from_iter(
-        groups[1..]
-            .iter()
-            .filter_map(|g| Map::from(g))
-            .map(|m| (m.from.clone(), m)),
-    ));
+fn distribute_seeds<F>(
+    l: Vec<Range<u64>>,
+    lookup_table: HashMap<String, Map>,
+    f: F,
+) -> u64
+where
+    F: Fn(u64, &HashMap<String, Map>) -> u64 + Copy + Send + 'static,
+{
+    let lookup_table = Arc::new(lookup_table);
+    let l = Box::leak(l.into_boxed_slice());
 
-    let process_seed = |seed, lookup: &HashMap<_, Map>| {
-        let mut next_val = seed;
-        let mut next_type = "seed";
-        while let Some(map) = lookup.get(next_type) {
-            log::debug!("type: {}, val: {}", next_type, next_val);
-            next_type = &map.to;
-            next_val = map.next_val(next_val);
-        }
-        next_val
-    };
-
-    let seed_list = Box::leak(seed_list.into_boxed_slice());
     let batch_size = 10_000;
-    let (seeds_tx, seeds_rx) = crossbeam_channel::bounded(10 * batch_size);
+    let (task_tx, task_rx) = crossbeam_channel::bounded(10 * batch_size);
     let producer = std::thread::spawn(move || {
-        seed_list.iter_mut().for_each(|seed_range| loop {
+        l.iter_mut().for_each(|seed_range| loop {
             let next_batch: Vec<_> = seed_range.take(batch_size).collect();
-
             if next_batch.is_empty() {
                 break;
             }
-            seeds_tx.send(next_batch).unwrap();
+            task_tx.send(next_batch).unwrap();
         });
 
-        drop(seeds_tx);
+        drop(task_tx);
         log::debug!("producer done");
     });
 
-    let n_threads = 7;
+    let n_threads: usize = std::thread::available_parallelism().unwrap().into();
     let (tx, rx) = crossbeam_channel::unbounded();
     let threads: Vec<_> = (0..n_threads)
         .map(|_| {
-            let seeds_rx = seeds_rx.clone();
+            let task_rx = task_rx.clone();
             let tx = tx.clone();
-            let lookup = Arc::clone(&lookup);
+            let lookup_table = Arc::clone(&lookup_table);
             std::thread::spawn(move || {
-                while let Ok(seeds) = seeds_rx.recv() {
+                while let Ok(seeds) = task_rx.recv() {
                     let local_min = seeds
                         .into_iter()
-                        .map(|seed| process_seed(seed, &lookup))
+                        .map(|seed| f(seed, &lookup_table))
                         .min()
                         .unwrap_or(u64::MAX);
                     tx.send(local_min).unwrap();
@@ -200,7 +191,32 @@ pub fn part2(input: &[String]) -> u32 {
     let smallest_loc = rx.iter().min().unwrap();
     producer.join().unwrap();
     threads.into_iter().for_each(|t| t.join().unwrap());
-    smallest_loc as u32
+    smallest_loc
+}
+
+pub fn part2(input: &[String]) -> u32 {
+    let input = input.join("\n");
+    let groups: Vec<_> = input.split("\n\n").collect();
+    let seed_list = get_seed_ranges_from_groups(&groups).unwrap();
+    let lookup: HashMap<_, Map> = HashMap::from_iter(
+        groups[1..]
+            .iter()
+            .filter_map(|g| Map::from(g))
+            .map(|m| (m.from.clone(), m)),
+    );
+
+    let process_seed = |seed, lookup: &HashMap<_, Map>| {
+        let mut next_val = seed;
+        let mut next_type = "seed";
+        while let Some(map) = lookup.get(next_type) {
+            log::debug!("type: {}, val: {}", next_type, next_val);
+            next_type = &map.to;
+            next_val = map.next_val(next_val);
+        }
+        next_val
+    };
+
+    distribute_seeds(seed_list, lookup, process_seed).try_into().unwrap()
 }
 
 #[cfg(test)]
