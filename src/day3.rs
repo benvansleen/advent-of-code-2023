@@ -1,6 +1,6 @@
-use core::slice::Iter;
+use crate::common::BoundedInt;
 use std::collections::HashMap;
-use std::str::FromStr;
+use std::slice::Iter;
 
 #[derive(Debug)]
 struct Node<T> {
@@ -24,9 +24,7 @@ enum Token<T> {
     Symbol(char),
 }
 
-fn read_next_token<T: Copy + Clone + FromStr + ilog::IntLog>(
-    s: &mut Iter<char>,
-) -> (Token<T>, usize) {
+fn read_next_token<T: BoundedInt>(s: &mut Iter<char>) -> (Token<T>, usize) {
     let parsed_num: Result<T, _> = str::parse(
         &s.clone()
             .take_while(|c| c.is_ascii_digit())
@@ -44,21 +42,7 @@ fn read_next_token<T: Copy + Clone + FromStr + ilog::IntLog>(
     }
 }
 
-impl<
-        T: Clone
-            + Copy
-            + Default
-            + std::ops::Add<Output = T>
-            + std::iter::Product
-            + std::iter::Sum
-            + std::cmp::Ord
-            + std::str::FromStr
-            + std::fmt::Debug
-            + std::marker::Send
-            + ilog::IntLog
-            + 'static,
-    > Grid<T>
-{
+impl<T: BoundedInt> Grid<T> {
     fn from(input: &[String]) -> Self {
         let input: Vec<Vec<char>> =
             input.iter().map(|s| s.chars().collect()).collect();
@@ -160,12 +144,12 @@ impl<
 }
 
 pub fn part1(input: &[String]) -> u32 {
-    let grid = Grid::<i32>::from(input);
+    let grid = Grid::<u32>::from(input);
     grid.sum_non_orphans() as u32
 }
 
 pub fn part2(input: &[String]) -> u32 {
-    let grid = Grid::<i32>::from(input);
+    let grid = Grid::<u32>::from(input);
     grid.sum_and_multiply_non_orphans() as u32
 }
 
