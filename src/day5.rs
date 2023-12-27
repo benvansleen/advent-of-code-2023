@@ -1,17 +1,76 @@
 use std::collections::{BTreeMap, HashMap};
-use std::ops::Range;
+use std::fmt::Debug;
+use std::ops::{Add, Range, Sub};
+use std::str::FromStr;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
-struct Map {
+struct Map<T> {
     from: String,
     to: String,
-    from_ranges: BTreeMap<u64, Range<u64>>,
-    to_ranges: Vec<Range<u64>>,
+    from_ranges: BTreeMap<T, Range<T>>,
+    to_ranges: Vec<Range<T>>,
 }
 
-impl Map {
-    fn from(s: &str) -> Option<Map> {
+trait BoundedInt:
+    Copy + Ord + FromStr + Add<Output = Self> + Sub<Output = Self> + Debug
+{
+    fn min_value() -> Self;
+    fn max_value() -> Self;
+}
+
+impl BoundedInt for u8 {
+    fn min_value() -> Self {
+        0
+    }
+
+    fn max_value() -> Self {
+        std::u8::MAX
+    }
+}
+
+impl BoundedInt for u16 {
+    fn min_value() -> Self {
+        0
+    }
+
+    fn max_value() -> Self {
+        std::u16::MAX
+    }
+}
+
+impl BoundedInt for u32 {
+    fn min_value() -> Self {
+        0
+    }
+
+    fn max_value() -> Self {
+        std::u32::MAX
+    }
+}
+
+impl BoundedInt for u64 {
+    fn min_value() -> Self {
+        0
+    }
+
+    fn max_value() -> Self {
+        std::u64::MAX
+    }
+}
+
+impl BoundedInt for u128 {
+    fn min_value() -> Self {
+        0
+    }
+
+    fn max_value() -> Self {
+        std::u128::MAX
+    }
+}
+
+impl<T: BoundedInt> Map<T> {
+    fn from(s: &str) -> Option<Self> {
         let split_on_colon: Vec<_> = s.split(':').collect();
 
         let label: Vec<_> = split_on_colon
@@ -32,7 +91,7 @@ impl Map {
         let mut from_ranges = Vec::new();
         let mut to_ranges = Vec::new();
         ranges.try_for_each(|r| {
-            let mut vals: Vec<u64> = r
+            let mut vals: Vec<T> = r
                 .split(' ')
                 .map(|v| v.parse())
                 .collect::<Result<_, _>>()
@@ -47,11 +106,11 @@ impl Map {
         });
 
         let mut zipped: Vec<_> =
-            to_ranges.iter().zip(from_ranges.iter()).collect();
+            to_ranges.into_iter().zip(from_ranges.iter()).collect();
         zipped.sort_by_key(|(_, from)| from.start);
-        let to_ranges = zipped.into_iter().map(|(to, _)| to.clone()).collect();
+        let to_ranges = zipped.into_iter().map(|(to, _)| to).collect();
 
-        Some(Map {
+        Some(Self {
             from,
             to,
             from_ranges: from_ranges
@@ -62,7 +121,7 @@ impl Map {
         })
     }
 
-    fn next_val(&self, val: u64) -> u64 {
+    fn next_val(&self, val: T) -> T {
         match self
             .from_ranges
             .range(..=val)
@@ -70,7 +129,7 @@ impl Map {
             .last()
         {
             Some(((start, range), to_range)) if range.contains(&val) => {
-                let offset = val - start;
+                let offset = val - *start;
                 to_range.start + offset
             }
             _ => val,
@@ -78,29 +137,56 @@ impl Map {
     }
 }
 
-fn get_seed_list_from_groups(groups: &[&str]) -> Option<Vec<u64>> {
-    groups
-        .first()?
-        .trim()
-        .split(':')
-        .last()?
-        .trim()
-        .split(' ')
-        .map(|s| s.parse())
-        .collect::<Result<_, _>>()
-        .ok()
+enum SeedList<T> {
+    List(Vec<T>),
+    Intervals(Vec<Range<T>>),
 }
 
-pub fn part1(input: &[String]) -> u32 {
-    let input = input.join("\n");
-    let groups: Vec<_> = input.split("\n\n").collect();
-    let seed_list = get_seed_list_from_groups(&groups).unwrap();
-    let lookup: HashMap<_, Map> = HashMap::from_iter(
-        groups[1..]
+type LookupTable<T> = HashMap<String, Map<T>>;
+
+fn get_seed_list_from_groups<T>(groups: &[&str]) -> Option<SeedList<T>>
+where
+    T: BoundedInt,
+{
+    Some(SeedList::List(
+        groups
+            .first()?
+            .trim()
+            .split(':')
+            .last()?
+            .trim()
+            .split(' ')
+            .map(|s| s.parse())
+            .collect::<Result<_, _>>()
+            .ok()?,
+    ))
+}
+
+fn parse_groups<T, F>(
+    seed_list_parse_fn: F,
+    groups: &[&str],
+) -> Option<(SeedList<T>, LookupTable<T>)>
+where
+    T: BoundedInt,
+    F: Fn(&[&str]) -> Option<SeedList<T>>,
+{
+    let seed_list = seed_list_parse_fn(groups)?;
+    let lookup: LookupTable<_> = LookupTable::from_iter(
+        groups
+            .get(1..)?
             .iter()
             .filter_map(|g| Map::from(g))
             .map(|m| (m.from.clone(), m)),
     );
+    Some((seed_list, lookup))
+}
+
+pub fn part1(input: &[String]) -> u32 {
+    let input = input.join("\n");
+    let Some((SeedList::List(seed_list), lookup)) = parse_groups::<u32, _>(
+        get_seed_list_from_groups,
+        &input.split("\n\n").collect::<Vec<_>>(),
+    ) else { panic!() };
 
     seed_list
         .into_iter()
@@ -115,10 +201,13 @@ pub fn part1(input: &[String]) -> u32 {
             next_val
         })
         .min()
-        .unwrap() as u32
+        .unwrap()
 }
 
-fn get_seed_ranges_from_groups(groups: &[&str]) -> Option<Vec<Range<u64>>> {
+fn get_seed_ranges_from_groups<T>(groups: &[&str]) -> Option<SeedList<T>>
+where
+    T: BoundedInt,
+{
     let ranges = groups
         .first()?
         .trim()
@@ -126,66 +215,67 @@ fn get_seed_ranges_from_groups(groups: &[&str]) -> Option<Vec<Range<u64>>> {
         .last()?
         .trim()
         .split(' ')
-        .filter_map(|s| s.parse::<u64>().ok());
+        .filter_map(|s| s.parse::<T>().ok());
 
     let start_values = ranges.clone().step_by(2);
     let offset_values = ranges.clone().skip(1).step_by(2);
-    Some(
+    Some(SeedList::Intervals(
         start_values
             .zip(offset_values)
             .map(|(start, offset)| start..(start + offset))
             .collect(),
-    )
+    ))
 }
 
-fn distribute_seeds<F>(
-    l: Vec<Range<u64>>,
-    lookup_table: HashMap<String, Map>,
+fn distribute_seeds<T, F>(
+    l: Vec<Range<T>>,
+    lookup_table: LookupTable<T>,
     f: F,
-) -> u64
+) -> T
 where
-    F: Fn(u64, &HashMap<String, Map>) -> u64 + Copy + Send + 'static,
+    T: BoundedInt + Send + Sync + 'static,
+    F: Fn(T, &LookupTable<T>) -> T + Copy + Send + 'static,
+    Range<T>: Iterator<Item = T>,
 {
-    let lookup_table = Arc::new(lookup_table);
     let l = Box::leak(l.into_boxed_slice());
+    let lookup_table = Arc::new(lookup_table);
 
     let batch_size = 10_000;
     let (task_tx, task_rx) = crossbeam_channel::bounded(10 * batch_size);
     let producer = std::thread::spawn(move || {
         l.iter_mut().for_each(|seed_range| loop {
-            let next_batch: Vec<_> = seed_range.take(batch_size).collect();
-            if next_batch.is_empty() {
-                break;
+            match seed_range.take(batch_size).collect::<Vec<_>>() {
+                v if !v.is_empty() => task_tx.send(v).unwrap(),
+                _ => break,
             }
-            task_tx.send(next_batch).unwrap();
         });
 
         drop(task_tx);
         log::debug!("producer done");
     });
 
-    let n_threads: usize = std::thread::available_parallelism().unwrap().into();
     let (tx, rx) = crossbeam_channel::unbounded();
-    let threads: Vec<_> = (0..n_threads)
-        .map(|_| {
-            let task_rx = task_rx.clone();
-            let tx = tx.clone();
-            let lookup_table = Arc::clone(&lookup_table);
-            std::thread::spawn(move || {
-                while let Ok(seeds) = task_rx.recv() {
-                    let local_min = seeds
-                        .into_iter()
-                        .map(|seed| f(seed, &lookup_table))
-                        .min()
-                        .unwrap_or(u64::MAX);
-                    tx.send(local_min).unwrap();
-                    log::debug!("sending local min: {}", local_min);
-                }
-                drop(tx);
-                log::debug!("worker done");
+    let threads: Vec<_> =
+        (0..std::thread::available_parallelism().unwrap().into())
+            .map(|_| {
+                let task_rx = task_rx.clone();
+                let tx = tx.clone();
+                let lookup_table = Arc::clone(&lookup_table);
+                std::thread::spawn(move || {
+                    while let Ok(seeds) = task_rx.recv() {
+                        let local_min = seeds
+                            .into_iter()
+                            .map(|seed| f(seed, &lookup_table))
+                            .min()
+                            .unwrap_or(T::max_value());
+                        tx.send(local_min).unwrap();
+                        log::debug!("sending local min: {:?}", local_min);
+                    }
+                    drop(tx);
+                    log::debug!("worker done");
+                })
             })
-        })
-        .collect();
+            .collect();
     drop(tx);
 
     let smallest_loc = rx.iter().min().unwrap();
@@ -196,16 +286,14 @@ where
 
 pub fn part2(input: &[String]) -> u32 {
     let input = input.join("\n");
-    let groups: Vec<_> = input.split("\n\n").collect();
-    let seed_list = get_seed_ranges_from_groups(&groups).unwrap();
-    let lookup: HashMap<_, Map> = HashMap::from_iter(
-        groups[1..]
-            .iter()
-            .filter_map(|g| Map::from(g))
-            .map(|m| (m.from.clone(), m)),
-    );
+    let Some(
+        (SeedList::Intervals(seed_list), lookup)
+    ) = parse_groups::<u64, _>(
+        get_seed_ranges_from_groups,
+        &input.split("\n\n").collect::<Vec<_>>(),
+    ) else { panic!() };
 
-    let process_seed = |seed, lookup: &HashMap<_, Map>| {
+    let process_seed = |seed, lookup: &LookupTable<_>| {
         let mut next_val = seed;
         let mut next_type = "seed";
         while let Some(map) = lookup.get(next_type) {
@@ -216,7 +304,9 @@ pub fn part2(input: &[String]) -> u32 {
         next_val
     };
 
-    distribute_seeds(seed_list, lookup, process_seed).try_into().unwrap()
+    distribute_seeds(seed_list, lookup, process_seed)
+        .try_into()
+        .unwrap()
 }
 
 #[cfg(test)]
