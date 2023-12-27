@@ -74,7 +74,7 @@ impl Map {
     }
 }
 
-fn get_seed_list_from_groups(groups: &Vec<&str>) -> Option<Vec<u64>> {
+fn get_seed_list_from_groups(groups: &[&str]) -> Option<Vec<u64>> {
     groups
         .first()?
         .trim()
@@ -114,7 +114,7 @@ pub fn part1(input: &[String]) -> u32 {
         .unwrap() as u32
 }
 
-fn get_seed_ranges_from_groups(groups: &Vec<&str>) -> Option<Vec<Range<u64>>> {
+fn get_seed_ranges_from_groups(groups: &[&str]) -> Option<Vec<Range<u64>>> {
     let ranges = groups
         .first()?
         .trim()
