@@ -32,8 +32,11 @@ impl Map {
         let mut from_ranges = Vec::new();
         let mut to_ranges = Vec::new();
         ranges.try_for_each(|r| {
-            let mut vals: Vec<u64> =
-                r.split(' ').map(|v| v.parse()).collect::<Result<_,_>>().ok()?;
+            let mut vals: Vec<u64> = r
+                .split(' ')
+                .map(|v| v.parse())
+                .collect::<Result<_, _>>()
+                .ok()?;
             let range = vals.pop()?;
             let from_begin = vals.pop()?;
             let to_begin = vals.pop()?;
@@ -43,15 +46,10 @@ impl Map {
             Some(())
         });
 
-        let mut zipped: Vec<_> = to_ranges
-            .iter()
-            .zip(from_ranges.iter())
-            .collect();
+        let mut zipped: Vec<_> =
+            to_ranges.iter().zip(from_ranges.iter()).collect();
         zipped.sort_by_key(|(_, from)| from.start);
-        let to_ranges = zipped
-            .into_iter()
-            .map(|(to, _)| to.clone())
-            .collect();
+        let to_ranges = zipped.into_iter().map(|(to, _)| to.clone()).collect();
 
         Some(Map {
             from,
@@ -70,7 +68,7 @@ impl Map {
                 let offset = val - start;
                 let to_range = self.to_ranges.get(i).unwrap();
                 to_range.start + offset
-            },
+            }
             _ => val,
         }
     }
@@ -116,27 +114,6 @@ pub fn part1(input: &[String]) -> u32 {
         .unwrap() as u32
 }
 
-fn merge_overlapping_ranges(ranges: &mut Vec<Range<u64>>) {
-    ranges.sort_by(|a, b| a.start.cmp(&b.start));
-    let pairs: Vec<_> = ranges.into_iter().map(|r| (r.start, r.end)).collect();
-    let mut merged_ranges: Vec<Range<u64>> = Vec::new();
-    for (start, end) in pairs.iter() {
-        if let Some(last) = merged_ranges.last_mut() {
-            if last.start <= *start && last.end >= *end {
-                continue;
-            }
-
-            if last.end >= *start {
-                last.end = *end;
-                continue;
-            }
-        }
-        merged_ranges.push(*start..*end);
-    }
-    dbg!(&merged_ranges);
-    *ranges = merged_ranges;
-}
-
 fn get_seed_ranges_from_groups(groups: &Vec<&str>) -> Option<Vec<Range<u64>>> {
     let ranges = groups
         .first()?
@@ -149,12 +126,12 @@ fn get_seed_ranges_from_groups(groups: &Vec<&str>) -> Option<Vec<Range<u64>>> {
 
     let start_values = ranges.clone().step_by(2);
     let offset_values = ranges.clone().skip(1).step_by(2);
-    let mut ranges: Vec<_> = start_values
-        .zip(offset_values)
-        .map(|(start, offset)| start..(start + offset))
-        .collect();
-    merge_overlapping_ranges(&mut ranges);
-    Some(ranges)
+    Some(
+        start_values
+            .zip(offset_values)
+            .map(|(start, offset)| start..(start + offset))
+            .collect(),
+    )
 }
 
 pub fn part2(input: &[String]) -> u32 {
@@ -179,48 +156,50 @@ pub fn part2(input: &[String]) -> u32 {
         next_val
     };
 
-    let seed_list = seed_list.into_boxed_slice();
+    let seed_list = Box::leak(seed_list.into_boxed_slice());
+    let batch_size = 10_000;
+    let (seeds_tx, seeds_rx) = crossbeam_channel::bounded(10 * batch_size);
+    let producer = std::thread::spawn(move || {
+        seed_list.iter_mut().for_each(|seed_range| loop {
+            let next_batch: Vec<_> = seed_range.take(batch_size).collect();
 
-    let n_threads = 8;
-    let (tx, rx) = std::sync::mpsc::channel();
-    let _threads: Vec<_> = Box::leak(seed_list)
-        // .chunks(std::cmp::max((n_seeds / n_threads) + 1, 1))
-        .chunks(1)
-        .enumerate()
-        .map(move |(i, chunk)| {
+            if next_batch.is_empty() {
+                break;
+            }
+            seeds_tx.send(next_batch).unwrap();
+        });
+
+        drop(seeds_tx);
+        log::debug!("producer done");
+    });
+
+    let n_threads = 7;
+    let (tx, rx) = crossbeam_channel::unbounded();
+    let threads: Vec<_> = (0..n_threads)
+        .map(|_| {
+            let seeds_rx = seeds_rx.clone();
             let tx = tx.clone();
             let lookup = Arc::clone(&lookup);
             std::thread::spawn(move || {
-                println!("thread {i} has {:?} seeds", chunk);
-                chunk.into_iter().for_each(|r| {
-                    let local_min = r
-                        .clone()
+                while let Ok(seeds) = seeds_rx.recv() {
+                    let local_min = seeds
+                        .into_iter()
                         .map(|seed| process_seed(seed, &lookup))
                         .min()
                         .unwrap_or(u64::MAX);
                     tx.send(local_min).unwrap();
-                });
-                // chunk.into_iter().for_each(|r| {
-                //     r.clone().for_each(|seed| {
-                //         tx.send(process_seed(seed, &lookup)).unwrap()
-                //     });
-                //     println!("thread {i} finished {:?}", r);
-                // });
+                    log::debug!("sending local min: {}", local_min);
+                }
+                drop(tx);
+                log::debug!("worker done");
             })
         })
         .collect();
+    drop(tx);
 
-    let mut smallest_loc = u64::MAX;
-    let mut vals_seen = 0;
-    while let Ok(val) = rx.recv() {
-        if val < smallest_loc {
-            smallest_loc = val;
-        }
-        println!("vals_seen: {}, smallest_loc: {}", vals_seen, smallest_loc);
-        vals_seen += 1;
-    }
-    // let smallest_loc = rx.iter().min().unwrap();
-    // threads.into_iter().for_each(|t| t.join().unwrap());
+    let smallest_loc = rx.iter().min().unwrap();
+    producer.join().unwrap();
+    threads.into_iter().for_each(|t| t.join().unwrap());
     smallest_loc as u32
 }
 
@@ -271,7 +250,7 @@ humidity-to-location map:
     }
 
     #[test]
-    fn part2()  {
+    fn part2() {
         let input = "
 seeds: 79 14 55 13
 
