@@ -1,7 +1,6 @@
+use crate::common::BoundedInt;
 use std::collections::{BTreeMap, HashMap};
-use std::fmt::Debug;
-use std::ops::{Add, Range, Sub};
-use std::str::FromStr;
+use std::ops::Range;
 use std::sync::Arc;
 
 #[derive(Debug, Clone)]
@@ -10,63 +9,6 @@ struct Map<T> {
     to: String,
     from_ranges: BTreeMap<T, Range<T>>,
     to_ranges: Vec<Range<T>>,
-}
-
-trait BoundedInt:
-    Copy + Ord + FromStr + Add<Output = Self> + Sub<Output = Self> + Debug
-{
-    fn min_value() -> Self;
-    fn max_value() -> Self;
-}
-
-impl BoundedInt for u8 {
-    fn min_value() -> Self {
-        0
-    }
-
-    fn max_value() -> Self {
-        std::u8::MAX
-    }
-}
-
-impl BoundedInt for u16 {
-    fn min_value() -> Self {
-        0
-    }
-
-    fn max_value() -> Self {
-        std::u16::MAX
-    }
-}
-
-impl BoundedInt for u32 {
-    fn min_value() -> Self {
-        0
-    }
-
-    fn max_value() -> Self {
-        std::u32::MAX
-    }
-}
-
-impl BoundedInt for u64 {
-    fn min_value() -> Self {
-        0
-    }
-
-    fn max_value() -> Self {
-        std::u64::MAX
-    }
-}
-
-impl BoundedInt for u128 {
-    fn min_value() -> Self {
-        0
-    }
-
-    fn max_value() -> Self {
-        std::u128::MAX
-    }
 }
 
 impl<T: BoundedInt> Map<T> {
@@ -183,7 +125,7 @@ where
 
 pub fn part1(input: &[String]) -> u32 {
     let input = input.join("\n");
-    let Some((SeedList::List(seed_list), lookup)) = parse_groups::<u32, _>(
+    let Some((SeedList::List(seed_list), lookup)) = parse_groups::<u64, _>(
         get_seed_list_from_groups,
         &input.split("\n\n").collect::<Vec<_>>(),
     ) else { panic!() };
@@ -201,6 +143,8 @@ pub fn part1(input: &[String]) -> u32 {
             next_val
         })
         .min()
+        .unwrap()
+        .try_into()
         .unwrap()
 }
 

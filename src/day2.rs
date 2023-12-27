@@ -1,4 +1,5 @@
-use std::{collections::HashMap, str::FromStr};
+use crate::common::BoundedInt;
+use std::collections::HashMap;
 
 #[derive(Debug)]
 struct State<T> {
@@ -17,30 +18,23 @@ impl<T: std::fmt::Display> std::fmt::Display for State<T> {
     }
 }
 
-impl<T: Default> Default for State<T> {
+impl<T: BoundedInt> Default for State<T> {
     fn default() -> Self {
         Self {
-            n_blue: T::default(),
-            n_red: T::default(),
-            n_green: T::default(),
+            n_blue: T::min_value(),
+            n_red: T::min_value(),
+            n_green: T::min_value(),
         }
     }
 }
 
-impl<
-        T: Copy
-            + Default
-            + FromStr
-            + PartialOrd
-            + std::fmt::Debug
-            + std::ops::Mul<Output = T>,
-    > State<T>
+impl<T: BoundedInt> State<T>
 {
     fn from(s: &str) -> Self {
         let mut color_count: HashMap<&str, T> = HashMap::from([
-            ("blue", T::default()),
-            ("red", T::default()),
-            ("green", T::default()),
+            ("blue", T::min_value()),
+            ("red", T::min_value()),
+            ("green", T::min_value()),
         ]);
 
         s.split(',').map(|i| i.trim()).for_each(|split| {
@@ -48,14 +42,14 @@ impl<
             let count: T = split_on_space
                 .first()
                 .expect("No count found")
-                .parse::<_>()
-                .unwrap_or(T::default());
+                .parse()
+                .unwrap_or(T::min_value());
             let color: &str = split_on_space.last().expect("No color found");
             color_count.insert(color, count);
         });
 
         let get_count = |color: &str| -> T {
-            *color_count.get(color).unwrap_or(&T::default())
+            *color_count.get(color).unwrap_or(&T::min_value())
         };
 
         Self {
@@ -86,25 +80,18 @@ impl<T: std::fmt::Display> std::fmt::Display for Game<T> {
     }
 }
 
-impl<
-        T: Copy
-            + Default
-            + Ord
-            + FromStr
-            + std::ops::Mul<Output = T>
-            + std::fmt::Debug,
-    > Game<T>
+impl<T: BoundedInt> Game<T>
 {
     fn from(s: &str) -> Game<T> {
         let split_on_colon: Vec<&str> = s.split(':').collect();
-        let game_id = split_on_colon
+        let game_id: T = split_on_colon
             .first()
             .expect("Incorrect input format -- no colon")
             .split(' ')
             .last()
             .expect("Incorrect input format -- no space")
-            .parse::<T>()
-            .unwrap_or(T::default());
+            .parse()
+            .unwrap_or(T::min_value());
 
         let iterations: Vec<State<_>> = split_on_colon
             .last()
